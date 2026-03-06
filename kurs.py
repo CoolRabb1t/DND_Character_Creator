@@ -1,9 +1,12 @@
 import random
 class Character:
 
-    def __init__(self, name):
-       self.name = name
-       self._lvl = 1
+    def __init__(self, name, race, dnd_class, ability_scores):
+        self.name = name
+        self.race = race
+        self.dnd_class = dnd_class
+        self.ability_scores = ability_scores
+        self._lvl = 1
 
     @property
     def name(self):
@@ -35,21 +38,29 @@ class Character:
           raise ValueError("LVL is already 20")
       
     @property
-    def proficience_bonus(self):
+    def proficiency_bonus(self):
        return 2 + (self._lvl - 1) // 4
       
 
 class AbilityScores:
 
-     def __init__(self, STR, DEX, CON, INT, WIS, CHA):
+     def __init__(self):
        self._scores = {
-         "STR": STR,
-         "DEX": DEX,
-         "CON": CON,
-         "INT": INT,
-         "WIS": WIS,
-         "CHA": CHA
+         "STR": 0,
+         "DEX": 0,
+         "CON": 0,
+         "INT": 0,
+         "WIS": 0,
+         "CHA": 0
        }
+       self._mod = {
+         "STR": 0,
+         "DEX": 0,
+         "CON": 0,
+         "INT": 0,
+         "WIS": 0,
+         "CHA": 0
+       } 
     
      def standard_array(self):
         array = [15, 14, 13, 12, 10, 8]
@@ -89,15 +100,19 @@ class AbilityScores:
                else:
                   print("MUST BE FROM AVAILABLE!")
 
-     def auto_by_class(self):
+     def auto_by_class(self,chosen_class):
         array = [15, 14, 13, 12, 10, 8]
         for i in range(6):
-           self._scores[DndClass.ablities_prior[i]] = array[i]
-
-     def modifier(self, ability):
-        return (self._scores[ability] - 10) // 2
+           self._scores[chosen_class.abilities_prior[i]] = array[i]
+     def race_bonus(self,chosen_race):
+        for i in chosen_race.ability_bonus:
+           self._scores[i] += chosen_race.ability_bonus[i]
+           
+     def modifier(self):
+        for i in self._mod:
+           self._mod[i] = (self._scores[i] - 10) // 2
      
-     def choose_score_generation_method(self):
+     def choose_score_generation_method(self,chosen_class):
         while True:
             try:
                 value = int(input("What way do you want to choose?\n"
@@ -116,11 +131,10 @@ class AbilityScores:
                self.dice_roll_method()
                break
             elif value == 3:
-               self.auto_by_class()
+               self.auto_by_class(chosen_class)
                break
 
             
-           
 class DndClass():
    
      def __init__ (self, key, display_name, description, role, difficulty,abilities_prior):
@@ -130,7 +144,7 @@ class DndClass():
        self._role = role
        self._difficulty = difficulty
        self._abilities_prior = abilities_prior
-
+     
 
 FIGHTER = DndClass(
     key="fighter",
@@ -246,10 +260,10 @@ ALL_CLASS = [FIGHTER, MONK, BARBARIAN, BARD, PALADIN, ROGUE, RANGER, SORCERER, W
 
 class Race:
    def __init__(self, key, display_name, description, ability_bonus):
-       self.key = key
-       self.display_name = display_name
-       self.description = description
-       self.ability_bonus = ability_bonus  # dict {"STR":2, "CON":1}
+       self._key = key
+       self._display_name = display_name
+       self._description = description
+       self._ability_bonus = ability_bonus  # dict {"STR":2, "CON":1}
         
 
 HUMAN = Race(
@@ -317,3 +331,30 @@ HALF_ELF = Race(
 
 
 ALL_RACES = [ HUMAN, ELF, DWARF, HALFLING, TIEFLING, HALF_ORC, GNOME, DRAGONBORN, HALF_ELF ]
+
+def choose_from_list(options, title):
+   i=1
+   print (f"All {title}:")
+   for variants in options:
+      print(f"{i}. {variants._display_name}")
+      i += 1
+   while True:
+       try:
+          value = int(input(f"Choose your options: "))
+       except ValueError:
+          print("Must be a number")
+          continue
+       if 1 <= value <= len(options):
+          return options[value-1]
+       else:
+          print(f"Must be one of the options")
+def character_creator():
+   name = input("Enter character name:")
+   chosen_class = choose_from_list(ALL_CLASS, "classes")
+   scores = AbilityScores()
+   chosen_race = choose_from_list(ALL_RACES, "races")
+   scores.choose_score_generation_method()
+   scores.race_bonus(chosen_race)
+   hero = Character(name, chosen_race, chosen_class, scores)
+
+      
