@@ -42,14 +42,20 @@ class Character:
     def proficiency_bonus(self):
         return 2 + (self._lvl - 1) // 4
     
+    @property
+    def hit_dies(self):
+        return self.dnd_class.hit_die + self.ability_scores._mod['CON']
+    @property
+    def ac(self):
+        return 10 + self.ability_scores._mod['DEX']
     def display(self):
         print("-----General-----")
         print(f"Name: {self.name}")
         print(f"Class: {self.dnd_class.display_name}")
         print(f"Race: {self.race.display_name}")
         print(f"Level: {self.lvl}")
-        print(f"HP: {self.dnd_class.hit_die + self.ability_scores._mod['CON']}")
-        print(f"AC: {10 + self.ability_scores._mod['DEX']}")
+        print(f"HP: {self.hit_dies}")
+        print(f"AC: {self.ac}")
         print(f"Proficiency Bonus: {self.proficiency_bonus}")
         print("\n-----Ability Scores-----")
         for ability, score in self.ability_scores._scores.items():
@@ -75,6 +81,14 @@ class AbilityScores:
             "WIS": 0,
             "CHA": 0
        } 
+    
+    @property
+    def scores(self):
+        return self._scores
+    
+    @property
+    def mod(self):
+        return self._mod
     
     def assign_score(self, value, i):
         self._scores[value] = i
@@ -172,10 +186,9 @@ def parse_ability_bonus(text):
         result[key.strip()] = int(value.strip())
     return result
       
-
 ALL_RACES = []
-
 df_races = pd.read_excel("game_data.xlsx", sheet_name = "RACE")
+
 for _, row in df_races.iterrows(): #man nereikalingas _ - index 
     ALL_RACES.append(Race(key = row["key"],
                           display_name = row["display_name"],
@@ -265,5 +278,7 @@ def choose_score_generation_method(scores,chosen_class):
         elif type_method == 3:
             scores.auto_by_class(chosen_class)
             break
-hero = character_creator()
-hero.display()
+
+if __name__ == "__main__":
+    hero = character_creator()
+    hero.display()
