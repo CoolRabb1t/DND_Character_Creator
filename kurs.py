@@ -45,6 +45,7 @@ class Character:
     @property
     def hit_dies(self):
         return self.dnd_class.hit_die + self.ability_scores._mod['CON']
+        
     @property
     def ac(self):
         return 10 + self.ability_scores._mod['DEX']
@@ -59,7 +60,7 @@ class Character:
         print(f"Proficiency Bonus: {self.proficiency_bonus}")
         print("\n-----Ability Scores-----")
         for ability, score in self.ability_scores._scores.items():
-            print(f"{ability}: {score} (Modifier: {self.ability_scores._mod[ability]:+d})")
+            print(f"{ability}: {score} (Modifier: {self.ability_scores.mod[ability]:+d})")
       
 
 class AbilityScores:
@@ -212,72 +213,49 @@ def choose_from_list(options, title):
         else:
             print(f"Must be one of the options")
 
-def character_creator():
-    name = input_value("Enter character name:", False)
-    chosen_class = choose_from_list(ALL_CLASS, "classes")
-    scores = AbilityScores()
-    chosen_race = choose_from_list(ALL_RACES, "races")
-    choose_score_generation_method(scores,chosen_class)
-    scores.race_bonus(chosen_race)
-    scores.modifier()
-    hero = Character(name, chosen_race, chosen_class, scores)
-    return hero
-
 def input_value(prompt, up):
     if up:
         return input(prompt).strip().upper()
     else: 
         return input(prompt).strip()
     
-def choose_score_generation_method(scores,chosen_class):
+def choose_score_generation_method(scores,chosen_class,type_method):
     array = [15, 14, 13, 12, 10, 8]
     abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
-    while True:
-        try:
-            type_method = int(input_value("What way do you want to choose?\n"
-            "1 - Standard Array\n"
-            "2 - Dice Roll\n"
-            "3 - Auto\n", False))
-        except ValueError:
-            print("Must be a number")
-            continue
-        if type_method not in [1,2,3]:
-            print("Choose one way from available")
-        elif type_method == 1:
-            for i in array:
-                print("Available:", abilities)
-                while True:
-                    value = input_value(f"For what characteristic {i} Abilities=", True)
-                    if value in abilities:
-                        scores.assign_score(value, i)
-                        abilities.remove(value)
-                        break
-                    else:
-                        print("MUST BE FROM AVAILABLE!")
-            break
-        elif type_method == 2:
-            dice_rolls = []
-            dice_rolls_show = []
-            for i in range(6):
-                dice_rolls.append(scores.dice_roll())
-            for i in range(6):
-                dice_rolls_show.append(dice_rolls[i])
-            for i in dice_rolls:
-                print("Available characteristics:", abilities)
-                print("Available dice rolls:", dice_rolls_show)
-                while True:
-                    value = input_value(f"For what characteristic {i} Abilities=", True)
-                    if value in abilities:
-                        scores.assign_score(value, i)
-                        abilities.remove(value)
-                        dice_rolls_show.remove(i)
-                        break
-                    else:
-                        print("MUST BE FROM AVAILABLE!")  
-            break
-        elif type_method == 3:
-            scores.auto_by_class(chosen_class)
-            break
+    if type_method not in ["Standard Array", "Dice Roll", "Auto By Class"]:
+        print("Choose one way from available")
+    elif type_method == "Standard Array":
+        for i in array:
+            print("Available:", abilities)
+            while True:
+                value = input_value(f"For what characteristic {i} Abilities=", True)
+                if value in abilities:
+                    scores.assign_score(value, i)
+                    abilities.remove(value)
+                    break
+                else:
+                    print("MUST BE FROM AVAILABLE!")
+    elif type_method == "Dice Roll":
+        dice_rolls = []
+        dice_rolls_show = []
+        for i in range(6):
+            dice_rolls.append(scores.dice_roll())
+        for i in range(6):
+            dice_rolls_show.append(dice_rolls[i])
+        for i in dice_rolls:
+            print("Available characteristics:", abilities)
+            print("Available dice rolls:", dice_rolls_show)
+            while True:
+                value = input_value(f"For what characteristic {i} Abilities=", True)
+                if value in abilities:
+                    scores.assign_score(value, i)
+                    abilities.remove(value)
+                    dice_rolls_show.remove(i)
+                    break
+                else:
+                    print("MUST BE FROM AVAILABLE!")  
+    elif type_method == "Auto By Class":
+        scores.auto_by_class(chosen_class)
 
 if __name__ == "__main__":
     hero = character_creator()
