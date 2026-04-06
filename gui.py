@@ -1,9 +1,19 @@
 from tkinter import * 
 from tkinter import ttk
+from collections import Counter
 import kurs
 root = Tk()
 root.title("DND character creator")
 root.geometry("300x250")
+def error_window(message):
+    window = Toplevel(root)
+    window.title("ERROR")
+    window.geometry("200x50")
+    frame = ttk.Frame(window)
+    frame.place(relx=0.5,anchor="n")
+    ttk.Label(frame, text="ERROR").grid(row=0, column=0)
+    ttk.Label(frame, text=message).grid(row=1, column=0)
+    window.grab_set()
 
 def open_character_window(hero):
     window = Toplevel(root)
@@ -41,13 +51,27 @@ def open_characteristic_window(hero_name, chosen_race, chosen_class, scores, arr
     window.geometry("290x200")
     ttk.Label(window, text = "Characteristic:").grid(row=0,column=0)
     ttk.Label(window, text = "Value:").grid(row=0,column=1)
-    characteristic_boxes = []
     value_boxes = []
     abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+    array = sorted(array)
+    def update_value_options(event=None):
+        total_counts = Counter(str(v) for v in array)
+        for box in value_boxes:
+            selected = [b.get() for b in value_boxes if b != box and b.get() != ""]
+            selected_counts = Counter(selected)
+            current = box.get()
+            available = []
+            for v in sorted(array):
+                v_str = str(v)
+                if selected_counts[v_str] < total_counts[v_str]:
+                    available.append(v)
+            box["values"] = available 
+
     for i in range(1,7):
         ttk.Label(window, text=f"{abilities[i-1]}").grid(row=i, column=0)
-        val_box = ttk.Combobox(window, values= array)
+        val_box = ttk.Combobox(window, values= array, state="readonly")
         val_box.grid(row = i, column = 1)
+        val_box.bind("<<ComboboxSelected>>", update_value_options)
         value_boxes.append(val_box)
     create_button = ttk.Button(window, text="Apply", command=lambda:applying(hero_name, chosen_race, chosen_class,scores, value_boxes, window))
     create_button.grid(row = 8, columnspan= 2)
@@ -74,11 +98,14 @@ def character_creator_gui():
     hero_race = race.get()
     chosen_race = finding(kurs.ALL_RACES,hero_race)
     type_of_method = type_method.get()
+    if hero_name == "" or hero_class == "" or hero_race == "" or type_of_method == "":
+        error_window("ONE OF THE FIELDS IS EMPTY")
+        return
     scores = kurs.AbilityScores()
     if type_of_method == "Standard Array":
         open_characteristic_window(hero_name, chosen_race, chosen_class, scores,[15, 14, 13, 12, 10, 8])
     elif type_of_method == "Dice Roll":
-        open_characteristic_window(hero_name, chosen_race, chosen_class, scores,[scores.dice_roll() for c in range(6)])
+            open_characteristic_window(hero_name, chosen_race, chosen_class, scores,[scores.dice_roll() for c in range(6)])
     elif type_of_method == "Auto By Class":
         scores.auto_by_class(chosen_class)
         scores.race_bonus(chosen_race)
@@ -108,19 +135,19 @@ entry = ttk.Entry(frame)
 entry.grid(row = 1, columnspan= 2)
 label = ttk.Label(race_class_frame, text = "CLASS:")
 label.grid(row = 3, column = 0)
-classs = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_CLASS])
+classs = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_CLASS], state="readonly")
 classs.grid(row = 4, column = 0)
 classs_button = ttk.Button(race_class_frame, text="CLASS INFO", command=open_class_window)
 classs_button.grid(row = 5, column = 0)
 label = ttk.Label(race_class_frame, text = "RACE:")
 label.grid(row = 3, column = 1)
-race = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_RACES])
+race = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_RACES], state="readonly")
 race.grid(row = 4, column = 1)
 race_button = ttk.Button(race_class_frame, text="RACE INFO", command=open_race_window)
 race_button.grid(row = 5, column = 1)
 label = ttk.Label(method_choice_frame, text = "Method:")
 label.grid(row = 3, column = 0)
-type_method = ttk.Combobox(method_choice_frame, values=["Standard Array", "Dice Roll", "Auto By Class"])
+type_method = ttk.Combobox(method_choice_frame, values=["Standard Array", "Dice Roll", "Auto By Class"], state="readonly")
 type_method.grid(row = 4, column = 0)
 create_button = ttk.Button(method_choice_frame, text="CREATE", command=character_creator_gui)
 create_button.grid(row = 5, column = 0)
