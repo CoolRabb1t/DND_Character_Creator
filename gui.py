@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import ttk
 from collections import Counter
 import kurs
+import pandas as pd
 root = Tk()
 root.title("DND character creator")
 root.geometry("300x250")
@@ -15,7 +16,36 @@ def error_window(message):
     ttk.Label(frame, text=message).grid(row=1, column=0)
     window.grab_set()
 
+def load_hero_window():
+    try: 
+        df_hero = pd.read_excel("game_data.xlsx", sheet_name = "HERO" )
+    except Exception as e:
+        error_window(e)
+        raise
+    if df_hero.empty:
+        error_window("No saved hero found")
+    else:
+        load_hero()
+
+def load_hero():
+    df_hero = pd.read_excel("game_data.xlsx", sheet_name = "HERO" )
+    abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+    row = df_hero.iloc[-1]
+    scores = kurs.AbilityScores()
+    for ability in abilities:
+        scores.assign_score(ability, int(row[ability]))
+    dnd_class_from_ex = finding(kurs.ALL_CLASS, row["display_name_class"])
+    race = finding(kurs.ALL_RACES, row["display_name_race"])
+    scores.modifier()
+    hero = kurs.Character(name = row["name"],
+                    race = race,
+                    dnd_class = dnd_class_from_ex,
+                    lvl = int(row["lvl"]),
+                    ability_scores= scores)
+    open_character_window(hero)
+       
 def open_character_window(hero):
+    root.withdraw()
     window = Toplevel(root)
     window.title("Your Character")
     window.geometry("300x300")
@@ -33,17 +63,59 @@ def open_character_window(hero):
     for ability, score in hero.ability_scores.scores.items():
         ttk.Label(character_frame, text=f"{ability}: {score} (Modifier: {hero.ability_scores.mod[ability]:+d})").grid(row=row, column=0)
         row += 1
-    window.protocol("WM_DELETE_WINDOW", root.destroy)
+
+    def close_character_window():
+        window.destroy()
+        root.deiconify() 
+
+    window.protocol("WM_DELETE_WINDOW", close_character_window)
+
+def open_class_info():
+    if classs.get() == "":
+        error_window("Please select a class first")
+        return
+    open_class_window()
 
 def open_class_window():
     window = Toplevel(root)
     window.title("Info About Class")
-    window.geometry("250x250")
+    window.geometry("350x290")
+    chosen_class = finding(kurs.ALL_CLASS,classs.get())
+    class_frame = ttk.Frame(window)
+    class_frame.place(relx=0.5,anchor="n")
+    ttk.Label(class_frame,text = f"{chosen_class.display_name}").grid(row = 0, column = 0)
+    ttk.Label(class_frame, text = f"HP: {chosen_class.hit_die}").grid(row = 1, column = 0, pady=2)
+    ttk.Label(class_frame, text = f"Role: {chosen_class._role}").grid(row = 2, column = 0, pady=2)
+    ttk.Label(class_frame, text = "Description:").grid(row = 3, column = 0,pady = 2)
+    ttk.Label(class_frame, text = f"{chosen_class.description}").grid(row = 4, column = 0,pady = 2)
+    ttk.Label(class_frame, text = f"Difficulty: {chosen_class._difficulty}").grid(row = 5, column = 0, pady = 2)
+    ttk.Label(class_frame, text = "Abilities Priority:").grid(row = 6, column = 0, pady = 2)
+    i = 7
+    for ability in chosen_class.abilities_prior:
+        ttk.Label(class_frame, text = f"{ability}").grid(row = i, column = 0, pady = 1)
+        i += 1
+
+def open_race_info():
+    if race.get() == "":
+        error_window("Please select a race first")
+        return
+    open_race_window()
 
 def open_race_window():
     window = Toplevel(root)
     window.title("Info About Race")
-    window.geometry("250x250")
+    window.geometry("300x250")
+    chosen_race = finding(kurs.ALL_RACES,race.get())
+    race_frame = ttk.Frame(window)
+    race_frame.place(relx=0.5,anchor="n")
+    ttk.Label(race_frame,text = f"{chosen_race.display_name}").grid(row = 0, column = 0,pady = 2)
+    ttk.Label(race_frame, text = "Description:").grid(row = 1, column = 0, pady = 2)
+    ttk.Label(race_frame, text = f"{chosen_race.description}").grid(row = 2, column = 0, pady = 2)
+    ttk.Label(race_frame, text = "Ability:").grid(row = 3, column = 0, pady = 2) 
+    i = 4
+    for ability,bonus in chosen_race.ability_bonus.items():
+        ttk.Label(race_frame, text = f"{ability} (+ {bonus})").grid(row = i, column = 0, pady = 1)
+        i += 1
 
 def open_characteristic_window(hero_name, chosen_race, chosen_class, scores, array):
     window = Toplevel(root)
@@ -65,7 +137,7 @@ def open_characteristic_window(hero_name, chosen_race, chosen_class, scores, arr
                 v_str = str(v)
                 if selected_counts[v_str] < total_counts[v_str]:
                     available.append(v)
-            box["values"] = available 
+            box["values"] =["-"]+ available  
 
     for i in range(1,7):
         ttk.Label(window, text=f"{abilities[i-1]}").grid(row=i, column=0)
@@ -79,12 +151,16 @@ def open_characteristic_window(hero_name, chosen_race, chosen_class, scores, arr
 
 def applying(hero_name, chosen_race, chosen_class,scores, value_boxes,window):
     abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
-    for c in range(6):
-        value = int(value_boxes[c].get())
-        scores.assign_score(abilities[c],value)
+    for box,ability in zip(value_boxes,abilities):
+        if box.get() == "-" or box.get() == "":
+            error_window("All values must be selected")
+            return
+        value = int(box.get())
+        scores.assign_score(ability,value)
     scores.race_bonus(chosen_race)
     scores.modifier()
-    hero = kurs.Character(hero_name, chosen_race, chosen_class, scores)
+    hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores)
+    kurs.save_hero(hero)
     window.destroy()
     root.withdraw()
     open_character_window(hero)
@@ -99,7 +175,7 @@ def character_creator_gui():
     chosen_race = finding(kurs.ALL_RACES,hero_race)
     type_of_method = type_method.get()
     if hero_name == "" or hero_class == "" or hero_race == "" or type_of_method == "":
-        error_window("ONE OF THE FIELDS IS EMPTY")
+        error_window("One of the fields is empty")
         return
     scores = kurs.AbilityScores()
     if type_of_method == "Standard Array":
@@ -110,7 +186,8 @@ def character_creator_gui():
         scores.auto_by_class(chosen_class)
         scores.race_bonus(chosen_race)
         scores.modifier()
-        hero = kurs.Character(hero_name, chosen_race, chosen_class, scores)
+        hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores)
+        kurs.save_hero(hero)
         root.withdraw()
         open_character_window(hero)
 
@@ -135,15 +212,15 @@ entry = ttk.Entry(frame)
 entry.grid(row = 1, columnspan= 2)
 label = ttk.Label(race_class_frame, text = "CLASS:")
 label.grid(row = 3, column = 0)
-classs = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_CLASS], state="readonly")
-classs.grid(row = 4, column = 0)
-classs_button = ttk.Button(race_class_frame, text="CLASS INFO", command=open_class_window)
+classs = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_CLASS], state="readonly",)
+classs.grid(row = 4, column = 0, padx = 2)
+classs_button = ttk.Button(race_class_frame, text="CLASS INFO", command=open_class_info)
 classs_button.grid(row = 5, column = 0)
 label = ttk.Label(race_class_frame, text = "RACE:")
 label.grid(row = 3, column = 1)
 race = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_RACES], state="readonly")
 race.grid(row = 4, column = 1)
-race_button = ttk.Button(race_class_frame, text="RACE INFO", command=open_race_window)
+race_button = ttk.Button(race_class_frame, text="RACE INFO", command=open_race_info)
 race_button.grid(row = 5, column = 1)
 label = ttk.Label(method_choice_frame, text = "Method:")
 label.grid(row = 3, column = 0)
@@ -151,4 +228,6 @@ type_method = ttk.Combobox(method_choice_frame, values=["Standard Array", "Dice 
 type_method.grid(row = 4, column = 0)
 create_button = ttk.Button(method_choice_frame, text="CREATE", command=character_creator_gui)
 create_button.grid(row = 5, column = 0)
+create_button = ttk.Button(method_choice_frame, text="SHOW LAST HERO", command=load_hero_window)
+create_button.grid(row = 6, column = 0)
 root.mainloop()
