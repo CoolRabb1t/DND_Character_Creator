@@ -59,6 +59,8 @@ def save_hero(hero):
         "WIS" : hero.ability_scores.scores["WIS"],
         "CHA" : hero.ability_scores.scores["CHA"],
         "history" : hero.history,
+        "inventory": ", ".join(item.name for item in hero.inventory),
+        "abilities": ", ".join(ability.name for ability in hero.abilities),
     }]
     df_hero = pd.DataFrame(data)
     with pd.ExcelWriter("game_data.xlsx", 

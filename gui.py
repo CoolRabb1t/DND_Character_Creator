@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from collections import Counter
 import pandas as pd
-from models import Character, AbilityScores
+from models import Character, AbilityScores, Item, Ability
 from score_methods import create_score_method
 from storage import ALL_CLASS, ALL_RACES, save_hero
 root = tk.Tk()
@@ -19,6 +19,24 @@ def error_window(message):
     ttk.Label(error_frame, text="ERROR").grid(row=0, column=0)
     ttk.Label(error_frame, text=message).grid(row=1, column=0)
     error_popup.grab_set()
+
+def parse_inventory(text):
+    result = []
+    if pd.isna(text) or str(text).strip() == "":
+        return result
+    parts = str(text).split(", ")
+    for part in parts:
+        result.append(Item(part.strip()))
+    return result
+
+def parse_abilities(text):
+    result = []
+    if pd.isna(text) or str(text).strip() == "":
+        return result
+    parts = str(text).split(", ")
+    for part in parts:
+        result.append(Ability(part.strip()))
+    return result
 
 # Window setup
 def load_hero_window():
@@ -48,6 +66,11 @@ def load_hero(df_hero):
         error_window("Saved race was not found")
         return
     scores.modifier()
+    inventory = parse_inventory(hero_row["inventory"])
+    abilities_list = parse_abilities(hero_row["abilities"])
+    history_value = hero_row["history"]
+    if pd.isna(history_value):
+        history_value = ""
     hero = Character(name = hero_row["name"],
                     race = saved_race,
                     dnd_class = saved_class,
@@ -55,7 +78,9 @@ def load_hero(df_hero):
                     ability_scores = scores,
                     current_hp = int(hero_row["current_hp"]),
                     hp_max = int(hero_row["hp_max"]),
-                    history = hero_row["history"])
+                    history = history_value,
+                    inventory = inventory,
+                    abilities = abilities_list)
     open_character_window(hero)
 
 # Hero showing       
@@ -64,7 +89,7 @@ def open_character_window(hero):
     root.withdraw()
     character_window = tk.Toplevel(root)
     character_window.title("Your Character")
-    character_window.geometry("450x400")
+    character_window.geometry("450x450")
     character_frame = ttk.Frame(character_window)
     history_frame = ttk.Frame(character_window)
     character_frame.place(relx=0.5,anchor="n")
@@ -127,11 +152,15 @@ def open_character_window(hero):
     for ability, score in hero.ability_scores.scores.items():
         ttk.Label(character_frame, text=f"{ability}: {score} (Modifier: {hero.ability_scores.mod[ability]:+d})").grid(row=row, column=2)
         row += 1
-    ttk.Label(character_frame, text="History:").grid(row=row, column=2)
+    inventory_text = ", ".join(item.name.title() for item in hero.inventory)
+    abilities_text = ", ".join(ability.name.title() for ability in hero.abilities)
+    ttk.Label(character_frame, text=f"Inventory: {inventory_text}").grid(row=row, column=2)
+    ttk.Label(character_frame, text=f"Abilities: {abilities_text}").grid(row=row+1, column=2)
+    ttk.Label(character_frame, text="History:").grid(row=row+2, column=2)
     history_box = tk.Text(history_frame, height=5, width=40, wrap="word")
     history_box.insert("1.0", hero.history)
     history_box.config(state="disabled")
-    history_box.grid(row=row+1, column=2)
+    history_box.grid(row=row+3, column=2)
 
 
     def close_character_window():
@@ -234,7 +263,7 @@ def apply_scores(hero_name, chosen_race, chosen_class,scores, value_boxes,window
         scores.assign_score(ability,value)
     scores.race_bonus(chosen_race)
     scores.modifier()
-    hero = Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
+    hero = Character(hero_name, chosen_race, chosen_class, 1, scores, loaded_history)
     save_hero(hero)
     window.destroy()
     open_character_window(hero)
@@ -265,7 +294,7 @@ def character_creator_gui():
     if generated_array is None:
         scores.race_bonus(chosen_race)
         scores.modifier()
-        hero = Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
+        hero = Character(hero_name, chosen_race, chosen_class, 1, scores, loaded_history)
         save_hero(hero)
         open_character_window(hero)
     else:

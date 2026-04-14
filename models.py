@@ -1,23 +1,57 @@
 import random
 class Character:
 
-    def __init__(self, name, race, dnd_class, lvl, ability_scores, current_hp, hp_max, history):
+    def __init__(self, name, race, dnd_class, lvl, 
+                 ability_scores, history = None, current_hp = None, hp_max = None, inventory = None, abilities = None):
         self.name = name
         self.race = race
         self.dnd_class = dnd_class
         self.ability_scores = ability_scores
         self.lvl = lvl
         self.history = history
+        self.inventory = inventory
+        self.abilities = abilities
         if hp_max is None:
             self._hp_max = dnd_class.hit_die + ability_scores.mod['CON']
         else:
             self.hp_max = hp_max
-
         if current_hp is None:
             self.current_hp = self.hp_max
         else:
             self.current_hp = current_hp
 
+    @property
+    def inventory(self):
+        return self._inventory
+
+    @inventory.setter
+    def inventory(self, value):
+        if value is None:
+            self._inventory = []
+            return
+        if not isinstance(value, list):
+            raise TypeError("Inventory must be a list")
+        for item in value:
+            if not isinstance(item, Item):
+                raise TypeError("All inventory elements must be Item objects")
+        self._inventory = value
+        
+    @property
+    def abilities(self):
+        return self._abilities
+
+    @abilities.setter
+    def abilities(self, value):
+        if value is None:
+            self._abilities = []
+            return
+        if not isinstance(value, list):
+            raise TypeError("Abilities must be a list")
+        for ability in value:
+            if not isinstance(ability, Ability):
+                raise TypeError("All abilities elements must be Ability objects")
+        self._abilities = value
+        
     @property
     def name(self):
         return self._name
@@ -113,6 +147,16 @@ class Character:
         if amount < 0:
             raise ValueError("Can not be negative")
         self.current_hp += amount
+    
+    def add_item(self, item):
+        if not isinstance(item, Item):
+            raise TypeError("Inventory object must be Item")
+        self.inventory.append(item)
+
+    def add_ability(self, ability):
+        if not isinstance(ability, Ability):
+            raise TypeError("Ability object must be Ability")
+        self.abilities.append(ability)
 
 class AbilityScores:
 
@@ -227,3 +271,17 @@ class Race:
     @property
     def description(self):
         return self._description
+    
+class Item:
+    def __init__(self, name, description=""):
+        self.name = str(name).strip()
+        self.description = str(description).strip()
+        if not self.name:
+            raise ValueError("Item name can not be empty")
+        
+class Ability:
+    def __init__(self, name, description=""):
+        self.name = str(name).strip()
+        self.description = str(description).strip()
+        if not self.name:
+            raise ValueError("Ability name can not be empty")
