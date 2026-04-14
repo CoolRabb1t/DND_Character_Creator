@@ -1,17 +1,17 @@
-from tkinter import * 
-from tkinter import ttk
+import tkinter as tk
+from tkinter import ttk, filedialog
 from collections import Counter
 import kurs
 import pandas as pd
-root = Tk()
+root = tk.Tk()
 root.title("DND character creator")
 root.geometry("300x250")
-
-#ERROR window
+loaded_history = ""
+# Error window
 def error_window(message):
-    error_popup = Toplevel(root)
+    error_popup = tk.Toplevel(root)
     error_popup.title("ERROR")
-    error_popup.geometry("200x50")
+    error_popup.geometry("300x50")
     error_frame = ttk.Frame(error_popup)
     error_frame.place(relx=0.5,anchor="n")
     ttk.Label(error_frame, text="ERROR").grid(row=0, column=0)
@@ -51,29 +51,86 @@ def load_hero(df_hero):
                     dnd_class = saved_class,
                     lvl = int(hero_row["lvl"]),
                     ability_scores = scores,
-                    current_hp = int(hero_row["current_hp"]))
+                    current_hp = int(hero_row["current_hp"]),
+                    hp_max = int(hero_row["hp_max"]),
+                    history = hero_row["history"])
     open_character_window(hero)
 
 # Hero showing       
 def open_character_window(hero):
+    
     root.withdraw()
-    character_window = Toplevel(root)
+    character_window = tk.Toplevel(root)
     character_window.title("Your Character")
-    character_window.geometry("300x300")
+    character_window.geometry("450x400")
     character_frame = ttk.Frame(character_window)
+    history_frame = ttk.Frame(character_window)
     character_frame.place(relx=0.5,anchor="n")
-    ttk.Label(character_frame, text=f"Name: {hero.name}").grid(row=0, column=0)
-    ttk.Label(character_frame, text=f"Race: {hero.race.display_name}").grid(row=1, column=0)
-    ttk.Label(character_frame, text=f"Class: {hero.dnd_class.display_name}").grid(row=2, column=0)
-    ttk.Label(character_frame, text=f"Level: {hero.lvl}").grid(row=3, column=0)
-    ttk.Label(character_frame, text=f"HP: {hero.current_hp} / {hero.hp_max}").grid(row=4, column=0)
-    ttk.Label(character_frame, text=f"AC: {hero.ac}").grid(row=5, column=0)
-    ttk.Label(character_frame, text=f"Proficiency Bonus: {hero.proficiency_bonus}").grid(row=6, column=0)
-    ttk.Label(character_frame, text="-----Ability Scores-----").grid(row=7, column=0)
+    history_frame.place(relx = 0.5, rely=0.75, anchor="n")
+    ttk.Label(character_frame, text=f"Name: {hero.name}").grid(row=0, column=2)
+    ttk.Label(character_frame, text=f"Race: {hero.race.display_name}").grid(row=1, column=2)
+    ttk.Label(character_frame, text=f"Class: {hero.dnd_class.display_name}").grid(row=2, column=2)
+    lvl_label = ttk.Label(character_frame, text=f"Level: {hero.lvl}")
+    lvl_label.grid(row = 3, column = 2)
+
+    def level_up_hero():
+        try:
+            hero.lvl_up()
+            hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
+            lvl_label.config(text = f"Level: {hero.lvl}")
+            proficiency_bonus_label.config(text=f"Proficiency Bonus: {hero.proficiency_bonus}")
+            kurs.save_hero(hero)
+        except Exception as e:
+            error_window(e)
+    
+    def reset_lvl():
+        hero.lvl = 1
+        hero.hp_max = hero.dnd_class.hit_die + hero.ability_scores.mod['CON']
+        hero.current_hp = hero.hp_max
+        lvl_label.config(text = f"Level: {hero.lvl}")
+        hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
+        proficiency_bonus_label.config(text=f"Proficiency Bonus: {hero.proficiency_bonus}")
+        kurs.save_hero(hero)
+
+    ttk.Button(character_frame,text = "LVL UP", command = level_up_hero).grid(row = 3, column=3)
+    ttk.Button(character_frame, text = "RESET LVL", command= reset_lvl).grid(row = 3, column=1)
+    hp_label = ttk.Label(character_frame, text=f"HP: {hero.current_hp} / {hero.hp_max}")
+    hp_label.grid(row = 4, column=2)
+    
+    def heal_hero(value):
+        try:
+            hero.heal(value)
+            hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
+            kurs.save_hero(hero)
+        except ValueError as e:
+            error_window(e)
+    
+    def damage_hero(value):
+        try:
+            hero.take_damage(value)
+            hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
+            kurs.save_hero(hero)
+        except ValueError as e:
+            error_window(e)
+
+    ttk.Button(character_frame, text =f"+1", command =lambda: heal_hero(1)).grid(row = 4, column = 3)
+    ttk.Button(character_frame, text = f"-1", command =lambda: damage_hero(1)).grid(row = 4, column = 1)
+    ttk.Button(character_frame, text =f"+5", command =lambda: heal_hero(5)).grid(row = 4, column = 4)
+    ttk.Button(character_frame, text = f"-5", command =lambda: damage_hero(5)).grid(row = 4, column = 0)
+    ttk.Label(character_frame, text=f"AC: {hero.ac}").grid(row=5, column=2)
+    proficiency_bonus_label = ttk.Label(character_frame, text=f"Proficiency Bonus: {hero.proficiency_bonus}")
+    proficiency_bonus_label.grid(row = 6, column = 2)
+    ttk.Label(character_frame, text="-----Ability Scores-----").grid(row=7, column=2)
     row = 8
     for ability, score in hero.ability_scores.scores.items():
-        ttk.Label(character_frame, text=f"{ability}: {score} (Modifier: {hero.ability_scores.mod[ability]:+d})").grid(row=row, column=0)
+        ttk.Label(character_frame, text=f"{ability}: {score} (Modifier: {hero.ability_scores.mod[ability]:+d})").grid(row=row, column=2)
         row += 1
+    ttk.Label(character_frame, text="History:").grid(row=row, column=2)
+    history_box = tk.Text(history_frame, height=5, width=40, wrap="word")
+    history_box.insert("1.0", hero.history)
+    history_box.config(state="disabled")
+    history_box.grid(row=row+1, column=2)
+
 
     def close_character_window():
         character_window.destroy()
@@ -90,7 +147,7 @@ def open_class_info():
 
 # Info windows   
 def open_class_window():
-    class_window = Toplevel(root)
+    class_window = tk.Toplevel(root)
     class_window.title("Info About Class")
     class_window.geometry("350x290")
     chosen_class = finding(kurs.ALL_CLASS,class_box.get())
@@ -117,7 +174,7 @@ def open_race_info():
 
 # Info windows
 def open_race_window():
-    race_window = Toplevel(root)
+    race_window = tk.Toplevel(root)
     race_window.title("Info About Race")
     race_window.geometry("300x250")
     chosen_race = finding(kurs.ALL_RACES,race_box.get())
@@ -132,9 +189,9 @@ def open_race_window():
         ttk.Label(race_frame, text = f"{ability} (+ {bonus})").grid(row = i, column = 0, pady = 1)
         i += 1
 
-#Score selection window 
+# Score selection window
 def open_score_window(hero_name, chosen_race, chosen_class, scores, array):
-    score_window = Toplevel(root)
+    score_window = tk.Toplevel(root)
     score_window.title("Choose characteristic")
     score_window.geometry("290x200")
     ttk.Label(score_window, text = "Characteristic:").grid(row=0,column=0)
@@ -164,7 +221,7 @@ def open_score_window(hero_name, chosen_race, chosen_class, scores, array):
     create_button.grid(row = 8, columnspan= 2)
     score_window.grab_set()
 
-#Window to aplyy score
+# Window to apply score
 def apply_scores(hero_name, chosen_race, chosen_class,scores, value_boxes,window):
     abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
     for box,ability in zip(value_boxes,abilities):
@@ -175,7 +232,7 @@ def apply_scores(hero_name, chosen_race, chosen_class,scores, value_boxes,window
         scores.assign_score(ability,value)
     scores.race_bonus(chosen_race)
     scores.modifier()
-    hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores, None)
+    hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
     kurs.save_hero(hero)
     window.destroy()
     open_character_window(hero)
@@ -206,14 +263,32 @@ def character_creator_gui():
     if generated_array is None:
         scores.race_bonus(chosen_race)
         scores.modifier()
-        hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores, None)
+        hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
         kurs.save_hero(hero)
         open_character_window(hero)
     else:
         open_score_window(hero_name, chosen_race, chosen_class, scores,generated_array)
- 
+
+def load_history():
+    global loaded_history 
+    try:
+        file_path = filedialog.askopenfilename(
+            title="Select history file",
+            filetypes=[("Text files", "*.txt")]
+        )
+        if not file_path:
+            loaded_history = ""
+            return
+        with open(file_path, "r", encoding="utf-8") as file:
+            loaded_history = file.read()
+            return
+    except Exception as e:
+        error_window(e)
+        loaded_history = ""
+        return
+
 # Utility functions
-def finding(options,display_name):
+def finding(options, display_name):
     for option in options:
         if option.display_name == display_name:
             return option
@@ -239,11 +314,13 @@ race_box = ttk.Combobox(race_class_frame, values=[variants.display_name for vari
 race_box.grid(row = 4, column = 1)
 race_button = ttk.Button(race_class_frame, text="RACE INFO", command=open_race_info)
 race_button.grid(row = 5, column = 1)
-ttk.Label(method_choice_frame, text = "Method:").grid(row = 3, column = 0)
+load_history_button = ttk.Button(method_choice_frame, text="LOAD HISTORY", command=load_history)
+load_history_button.grid(row = 3, column = 0)
+ttk.Label(method_choice_frame, text = "Method:").grid(row = 4, column = 0)
 method_box = ttk.Combobox(method_choice_frame, values=["Standard Array", "Dice Roll", "Auto By Class"], state="readonly")
-method_box.grid(row = 4, column = 0)
-create_button = ttk.Button(method_choice_frame, text="CREATE", command=character_creator_gui)
-create_button.grid(row = 5, column = 0)
+method_box.grid(row = 5, column = 0)
+create_button = ttk.Button(method_choice_frame, text="CREATE", command= character_creator_gui)
+create_button.grid(row = 6, column = 0)
 load_button = ttk.Button(method_choice_frame, text="SHOW LAST HERO", command=load_hero_window)
-load_button.grid(row = 6, column = 0)
+load_button.grid(row = 7, column = 0)
 root.mainloop()

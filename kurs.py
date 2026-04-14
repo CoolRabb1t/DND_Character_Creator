@@ -2,13 +2,18 @@ import random
 import pandas as pd
 class Character:
 
-    def __init__(self, name, race, dnd_class, lvl, ability_scores, current_hp):
+    def __init__(self, name, race, dnd_class, lvl, ability_scores, current_hp, hp_max, history):
         self.name = name
         self.race = race
         self.dnd_class = dnd_class
         self.ability_scores = ability_scores
         self.lvl = lvl
-        self._hp_max = dnd_class.hit_die + ability_scores.mod['CON']
+        self.history = history
+        if hp_max is None:
+            self._hp_max = dnd_class.hit_die + ability_scores.mod['CON']
+        else:
+            self.hp_max = hp_max
+
         if current_hp is None:
             self.current_hp = self.hp_max
         else:
@@ -41,7 +46,9 @@ class Character:
         if self._lvl < 20:
             self._lvl = self._lvl + 1
             gain = self.roll_hp_gain()
-            self._hp_max = self._hp_max + gain + self.ability_scores.mod["CON"]
+            gain = gain + self.ability_scores.mod["CON"]
+            self.hp_max = self.hp_max + gain
+            self.current_hp = self.current_hp + gain
         else: 
             raise ValueError("LVL is already 20")
       
@@ -52,6 +59,14 @@ class Character:
     @property
     def hp_max(self):
         return self._hp_max
+    
+    @hp_max.setter
+    def hp_max(self, value):
+        if not isinstance(value, int):
+            raise TypeError("HP must be a number")
+        if value <= 0:
+            raise ValueError("HP max must be greater than 0")
+        self._hp_max = value
         
     @property
     def ac(self):
@@ -61,6 +76,18 @@ class Character:
     def current_hp(self):
         return self._current_hp
     
+    @property
+    def history(self):
+        return self._history
+    
+    @history.setter
+    def history(self, story):
+        if story is None:
+            self._history = ""
+        else: 
+            self._history = str(story).strip()
+
+
     @current_hp.setter
     def current_hp(self, value):
         if not isinstance(value, int):
@@ -75,11 +102,18 @@ class Character:
         return random.randint(1, self.dnd_class.hit_die)
     
     def take_damage(self, amount):
+        if not isinstance(amount, int):
+            raise TypeError("Amount must be an integer")
+        if amount < 0:
+            raise ValueError("Can not be negative")
         self.current_hp -= amount
-
+ 
     def heal(self, amount):
+        if not isinstance(amount, int):
+            raise TypeError("Amount must be an integer")
+        if amount < 0:
+            raise ValueError("Can not be negative")
         self.current_hp += amount
-
       
 class ScoreGenerationMethod:
     def generate(self, scores, chosen_class):
@@ -138,8 +172,15 @@ class AbilityScores:
     def mod(self):
         return self._mod
     
-    def assign_score(self, value, i):
-        self._scores[value] = i
+    def assign_score(self, ability, score):
+        allowed = {"STR", "DEX", "CON", "INT", "WIS", "CHA"}
+        if ability not in allowed:
+            raise ValueError("Invalid ability name")
+        if not isinstance(score, int):
+            raise TypeError("Score must be an integer")
+        if score < 0:
+            raise ValueError("Score can not be negative")
+        self._scores[ability] = score 
     
     def dice_roll(self):
         dices = []
@@ -163,7 +204,7 @@ class AbilityScores:
             self.mod[i] = (self.scores[i] - 10) // 2
 
 
-class DndClass():
+class DndClass:
    
     def __init__ (self, key, display_name, description, role, difficulty, abilities_prior, hit_die):
         self._key = key
@@ -276,9 +317,11 @@ def save_hero(hero):
         "INT" : hero.ability_scores.scores["INT"],
         "WIS" : hero.ability_scores.scores["WIS"],
         "CHA" : hero.ability_scores.scores["CHA"],
+        "history" : hero.history,
     }]
     df_hero = pd.DataFrame(data)
-    with pd.ExcelWriter("game_data.xlsx", engine= "openpyxl", mode = "a", if_sheet_exists="replace") as writer: df_hero.to_excel(writer, sheet_name = "HERO", index = False)
-
-if __name__ == "__main__":
-    pass
+    with pd.ExcelWriter("game_data.xlsx", 
+                        engine= "openpyxl", mode = "a", 
+                        if_sheet_exists="replace") as writer: df_hero.to_excel(writer, 
+                                                                               sheet_name = "HERO", 
+                                                                               index = False)
