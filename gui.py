@@ -1,8 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 from collections import Counter
-import kurs
 import pandas as pd
+from models import Character, AbilityScores
+from score_methods import create_score_method
+from storage import ALL_CLASS, ALL_RACES, save_hero
 root = tk.Tk()
 root.title("DND character creator")
 root.geometry("300x250")
@@ -34,19 +36,19 @@ def load_hero_window():
 def load_hero(df_hero):
     abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
     hero_row = df_hero.iloc[-1]
-    scores = kurs.AbilityScores()
+    scores = AbilityScores()
     for ability in abilities:
         scores.assign_score(ability, int(hero_row[ability]))
-    saved_class = finding(kurs.ALL_CLASS, hero_row["display_name_class"])
+    saved_class = finding(ALL_CLASS, hero_row["display_name_class"])
     if saved_class is None:
         error_window("Saved class was not found")
         return
-    saved_race = finding(kurs.ALL_RACES, hero_row["display_name_race"])
+    saved_race = finding(ALL_RACES, hero_row["display_name_race"])
     if saved_race is None:
         error_window("Saved race was not found")
         return
     scores.modifier()
-    hero = kurs.Character(name = hero_row["name"],
+    hero = Character(name = hero_row["name"],
                     race = saved_race,
                     dnd_class = saved_class,
                     lvl = int(hero_row["lvl"]),
@@ -79,7 +81,7 @@ def open_character_window(hero):
             hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
             lvl_label.config(text = f"Level: {hero.lvl}")
             proficiency_bonus_label.config(text=f"Proficiency Bonus: {hero.proficiency_bonus}")
-            kurs.save_hero(hero)
+            save_hero(hero)
         except Exception as e:
             error_window(e)
     
@@ -90,7 +92,7 @@ def open_character_window(hero):
         lvl_label.config(text = f"Level: {hero.lvl}")
         hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
         proficiency_bonus_label.config(text=f"Proficiency Bonus: {hero.proficiency_bonus}")
-        kurs.save_hero(hero)
+        save_hero(hero)
 
     ttk.Button(character_frame,text = "LVL UP", command = level_up_hero).grid(row = 3, column=3)
     ttk.Button(character_frame, text = "RESET LVL", command= reset_lvl).grid(row = 3, column=1)
@@ -101,7 +103,7 @@ def open_character_window(hero):
         try:
             hero.heal(value)
             hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
-            kurs.save_hero(hero)
+            save_hero(hero)
         except ValueError as e:
             error_window(e)
     
@@ -109,7 +111,7 @@ def open_character_window(hero):
         try:
             hero.take_damage(value)
             hp_label.config(text=f"HP: {hero.current_hp} / {hero.hp_max}")
-            kurs.save_hero(hero)
+            save_hero(hero)
         except ValueError as e:
             error_window(e)
 
@@ -150,7 +152,7 @@ def open_class_window():
     class_window = tk.Toplevel(root)
     class_window.title("Info About Class")
     class_window.geometry("350x290")
-    chosen_class = finding(kurs.ALL_CLASS,class_box.get())
+    chosen_class = finding(ALL_CLASS,class_box.get())
     class_frame = ttk.Frame(class_window)
     class_frame.place(relx=0.5,anchor="n")
     ttk.Label(class_frame,text = f"{chosen_class.display_name}").grid(row = 0, column = 0)
@@ -177,7 +179,7 @@ def open_race_window():
     race_window = tk.Toplevel(root)
     race_window.title("Info About Race")
     race_window.geometry("300x250")
-    chosen_race = finding(kurs.ALL_RACES,race_box.get())
+    chosen_race = finding(ALL_RACES,race_box.get())
     race_frame = ttk.Frame(race_window)
     race_frame.place(relx=0.5,anchor="n")
     ttk.Label(race_frame,text = f"{chosen_race.display_name}").grid(row = 0, column = 0,pady = 2)
@@ -232,8 +234,8 @@ def apply_scores(hero_name, chosen_race, chosen_class,scores, value_boxes,window
         scores.assign_score(ability,value)
     scores.race_bonus(chosen_race)
     scores.modifier()
-    hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
-    kurs.save_hero(hero)
+    hero = Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
+    save_hero(hero)
     window.destroy()
     open_character_window(hero)
 
@@ -241,12 +243,12 @@ def apply_scores(hero_name, chosen_race, chosen_class,scores, value_boxes,window
 def character_creator_gui():
     hero_name = entry.get()
     selected_class = class_box.get()
-    chosen_class = finding(kurs.ALL_CLASS,selected_class)
+    chosen_class = finding(ALL_CLASS,selected_class)
     if chosen_class is None:
         error_window("Class not found")
         return
     selected_race = race_box.get()
-    chosen_race = finding(kurs.ALL_RACES,selected_race)
+    chosen_race = finding(ALL_RACES,selected_race)
     if chosen_race is None:
         error_window("Race not found")
         return
@@ -254,8 +256,8 @@ def character_creator_gui():
     if hero_name == "" or selected_class == "" or selected_race == "" or selected_method == "":
         error_window("One of the fields is empty")
         return
-    scores = kurs.AbilityScores()
-    score_method = kurs.create_score_method(selected_method)
+    scores = AbilityScores()
+    score_method = create_score_method(selected_method)
     if score_method is None:
         error_window("Method not found")
         return
@@ -263,8 +265,8 @@ def character_creator_gui():
     if generated_array is None:
         scores.race_bonus(chosen_race)
         scores.modifier()
-        hero = kurs.Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
-        kurs.save_hero(hero)
+        hero = Character(hero_name, chosen_race, chosen_class, 1, scores, None, None, loaded_history)
+        save_hero(hero)
         open_character_window(hero)
     else:
         open_score_window(hero_name, chosen_race, chosen_class, scores,generated_array)
@@ -305,12 +307,12 @@ ttk.Label(main_frame, text = "Entry name:").grid(row = 0, columnspan= 2)
 entry = ttk.Entry(main_frame)
 entry.grid(row = 1, columnspan= 2)
 ttk.Label(race_class_frame, text = "CLASS:").grid(row = 3, column = 0)
-class_box = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_CLASS], state="readonly",)
+class_box = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in ALL_CLASS], state="readonly",)
 class_box.grid(row = 4, column = 0, padx = 2)
 class_button = ttk.Button(race_class_frame, text="CLASS INFO", command=open_class_info)
 class_button.grid(row = 5, column = 0)
 ttk.Label(race_class_frame, text = "RACE:").grid(row = 3, column = 1)
-race_box = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in kurs.ALL_RACES], state="readonly")
+race_box = ttk.Combobox(race_class_frame, values=[variants.display_name for variants in ALL_RACES], state="readonly")
 race_box.grid(row = 4, column = 1)
 race_button = ttk.Button(race_class_frame, text="RACE INFO", command=open_race_info)
 race_button.grid(row = 5, column = 1)
